@@ -14,6 +14,8 @@
 #include <string>
 #include <thread>
 
+struct sockaddr_in client, server;
+
 char* getData(std::ifstream &in){
     std::string data;
     getline(in,data);
@@ -24,11 +26,10 @@ char* getData(std::ifstream &in){
     return charArr;
 }
 
-void receiver(int sockfd, struct sockaddr_in client){
+void receiver(int sockfd){
     bool running = true;
     char buffer[1024];
     socklen_t addr_size;
-    std::string line;
     while(true){
         addr_size = sizeof(client);
         recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, &addr_size);
@@ -40,6 +41,22 @@ void receiver(int sockfd, struct sockaddr_in client){
     }
 }
 
+void sender(int sockfd){
+    bool running = true;
+    char buffer[1024];
+    std::string line;
+    while(true){
+        std::getline(std::cin,line);
+        strcpy(buffer, line.c_str());
+        sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, sizeof(client));
+        if(line == "end"){
+            running = false;
+            break;
+        }
+        std::cout << "Data sent: "<< buffer <<std::endl;
+    }
+}
+
 int main(int argc, char** argv){
     if(argc != 2){
         std::cerr << "Usage:" << argv[0] << " ServerInfo.txt\n";
@@ -47,7 +64,6 @@ int main(int argc, char** argv){
     }//check to make sure the server info file was passed to main
 
     std::ifstream in;
-
     in.open(argv[1]);
     if(!in){
         std::cerr << "Error opening the file\n";
@@ -59,10 +75,9 @@ int main(int argc, char** argv){
     int port = atoi(portData);
     delete [] portData;
     int sockfd;
-    struct sockaddr_in client, server;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-	    std::cerr << "cannot create socket\n";
+	    std::cerr << "Cannot create socket\n";
 	    exit(0);
     }//check to see if socket was properly created
 
@@ -73,13 +88,14 @@ int main(int argc, char** argv){
     delete [] addressData;
 
     if ( bind(sockfd, (const struct sockaddr *) &server, sizeof(server)) < 0 ){ 
-        std::cerr << "cannot bind socket\n";
+        std::cerr << "Cannot bind socket\n";
 	    exit(0);
     }//check to see if the socket was properly binded
 
-    std::thread rfc(receiver, sockfd, client);
-    rfc.join();
-    
+    std::thread rfc(receiver, sockfd);
+    rfc.detach();
+    std::thread stc(sender, sockfd);
+    stc.join();
 
     return 0;
 }

@@ -14,6 +14,8 @@
 #include <string>
 #include <thread>
 
+struct sockaddr_in server;
+
 char* getData(std::ifstream &in){
     std::string data;
     getline(in,data);
@@ -24,14 +26,29 @@ char* getData(std::ifstream &in){
     return charArr;
 }
 
-void sender(int sockfd, struct sockaddr_in client){
+void receiver(int sockfd){
+    bool running = true;
+    char buffer[1024];
+    socklen_t addr_size;
+    while(true){
+        addr_size = sizeof(server);
+        recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*)& server, &addr_size);
+        std::cout << "Data recieved: " << buffer << std::endl;
+        if(std::strcmp(buffer,"end")==0){
+            running = false;
+            break;
+        }
+    }
+}
+
+void sender(int sockfd){
     bool running = true;
     char buffer[1024];
     std::string line;
     while(true){
         std::getline(std::cin,line);
         strcpy(buffer, line.c_str());
-        sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, sizeof(client));
+        sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &server, sizeof(server));
         if(line == "end"){
             running = false;
             break;
@@ -47,7 +64,6 @@ int main(int argc, char** argv){
     }//check to make sure the server info file was passed to main
 
     std::ifstream in;
-
     in.open(argv[1]);
     if(!in){
         std::cerr << "Error opening the file\n";
@@ -59,22 +75,23 @@ int main(int argc, char** argv){
     int port = atoi(portData);
     delete [] portData;
     int sockfd;
-    struct sockaddr_in client;
-    socklen_t addr_size;
+    
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-	    std::cerr << "cannot create socket\n";
+	    std::cerr << "Cannot create socket\n";
 	    exit(0);
     }//check to see if socket was properly created
 
-    memset(&client, '\0', sizeof(client));
-    client.sin_family = AF_INET;
-    client.sin_port = htons(port);
-    client.sin_addr.s_addr = inet_addr(addressData);
+    memset(&server, '\0', sizeof(server));
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr.s_addr = inet_addr(addressData);
     delete [] addressData;
-
-    std::thread sts(sender, sockfd, client);
+    
+    std::thread rfs(receiver, sockfd);
+    rfs.detach();
+    std::thread sts(sender, sockfd);
     sts.join();
-
+    
     return 0;
 }
