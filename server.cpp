@@ -24,6 +24,22 @@ char* getData(std::ifstream &in){
     return charArr;
 }
 
+void receiver(int sockfd, struct sockaddr_in client){
+    bool running = true;
+    char buffer[1024];
+    socklen_t addr_size;
+    std::string line;
+    while(true){
+        addr_size = sizeof(client);
+        recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, &addr_size);
+        std::cout << "Data recieved: " << buffer << std::endl;
+        if(std::strcmp(buffer,"end")==0){
+            running = false;
+            break;
+        }
+    }
+}
+
 int main(int argc, char** argv){
     if(argc != 2){
         std::cerr << "Usage:" << argv[0] << " ServerInfo.txt\n";
@@ -44,8 +60,6 @@ int main(int argc, char** argv){
     delete [] portData;
     int sockfd;
     struct sockaddr_in client, server;
-    char buffer[1024];
-    socklen_t addr_size;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 	    std::cerr << "cannot create socket\n";
@@ -63,9 +77,9 @@ int main(int argc, char** argv){
 	    exit(0);
     }//check to see if the socket was properly binded
 
-    addr_size = sizeof(client);
-    recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, &addr_size);
-    std::cout << "Data recieved: " << buffer << std::endl;
+    std::thread rfc(receiver, sockfd, client);
+    rfc.join();
+    
 
     return 0;
 }

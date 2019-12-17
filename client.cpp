@@ -24,6 +24,22 @@ char* getData(std::ifstream &in){
     return charArr;
 }
 
+void sender(int sockfd, struct sockaddr_in client){
+    bool running = true;
+    char buffer[1024];
+    std::string line;
+    while(true){
+        std::getline(std::cin,line);
+        strcpy(buffer, line.c_str());
+        sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, sizeof(client));
+        if(line == "end"){
+            running = false;
+            break;
+        }
+        std::cout << "Data sent: "<< buffer <<std::endl;
+    }
+}
+
 int main(int argc, char** argv){
     if(argc != 2){
         std::cerr << "Usage:" << argv[0] << " ServerInfo.txt\n";
@@ -44,7 +60,6 @@ int main(int argc, char** argv){
     delete [] portData;
     int sockfd;
     struct sockaddr_in client;
-    char buffer[1024];
     socklen_t addr_size;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -58,9 +73,8 @@ int main(int argc, char** argv){
     client.sin_addr.s_addr = inet_addr(addressData);
     delete [] addressData;
 
-    strcpy(buffer, "hello\n");
-    sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, sizeof(client));
-    std::cout << "data sent: "<< buffer <<std::endl;
+    std::thread sts(sender, sockfd, client);
+    sts.join();
 
     return 0;
 }
