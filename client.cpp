@@ -14,6 +14,16 @@
 #include <string>
 #include <thread>
 
+char* getData(std::ifstream &in){
+    std::string data;
+    getline(in,data);
+    data = data.substr(15);
+    int n = data.length() + 1; //convert from a strint to char array
+    char* charArr = new char[n];
+    strcpy(charArr, data.c_str());
+    return charArr;
+}
+
 int main(int argc, char** argv){
     if(argc != 2){
         std::cerr << "Usage:" << argv[0] << " ServerInfo.txt\n";
@@ -21,17 +31,17 @@ int main(int argc, char** argv){
     }//check to make sure the server info file was passed to main
 
     std::ifstream in;
-    std::string data;
+
     in.open(argv[1]);
     if(!in){
         std::cerr << "Error opening the file\n";
         exit(0);
     }//check to see if the file can be opened
-    getline(in,data);
-    std::cout << data << std::endl;
-
-    return 0;
-    int port;
+    char* portData = getData(in);
+    char* addressData = getData(in);
+    
+    int port = atoi(portData);
+    delete [] portData;
     int sockfd;
     struct sockaddr_in client, server;
     char buffer[1024];
@@ -45,7 +55,8 @@ int main(int argc, char** argv){
     memset(&client, '\0', sizeof(client));
     client.sin_family = AF_INET;
     client.sin_port = htons(port);
-    client.sin_addr.s_addr = inet_addr("127.0.0.1");
+    client.sin_addr.s_addr = inet_addr(addresData);
+    delete [] portData;
 
     if ( bind(sockfd, (const struct sockaddr *) &client, sizeof(client)) < 0 ){ 
         std::cerr << "cannot bind socket\n";
