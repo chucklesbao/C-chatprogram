@@ -43,7 +43,7 @@ int main(int argc, char** argv){
     int port = atoi(portData);
     delete [] portData;
     int sockfd;
-    struct sockaddr_in client, server;
+    struct sockaddr_in client;
     char buffer[1024];
     socklen_t addr_size;
 
@@ -55,17 +55,12 @@ int main(int argc, char** argv){
     memset(&client, '\0', sizeof(client));
     client.sin_family = AF_INET;
     client.sin_port = htons(port);
-    client.sin_addr.s_addr = inet_addr(addresData);
-    delete [] portData;
+    client.sin_addr.s_addr = inet_addr(addressData);
+    delete [] addressData;
 
-    if ( bind(sockfd, (const struct sockaddr *) &client, sizeof(client)) < 0 ){ 
-        std::cerr << "cannot bind socket\n";
-	    exit(0);
-    }//check to see if the socket was properly binded
-
-    addr_size = sizeof(server);
-    recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &server, &addr_size);
-    std::cout << "Data recieved: " << buffer << std::endl;
+    strcpy(buffer, "hello\n");
+    sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, sizeof(client));
+    std::cout << "data sent: "<< buffer <<std::endl;
 
     return 0;
 }
