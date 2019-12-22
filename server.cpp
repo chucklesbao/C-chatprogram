@@ -20,7 +20,7 @@ char* getData(std::ifstream &in){
     std::string data;
     getline(in,data);
     data = data.substr(15);
-    int n = data.length() + 1; //convert from a strint to char array
+    int n = data.length() + 1; //convert from a string to char array
     char* charArr = new char[n];
     strcpy(charArr, data.c_str());
     return charArr;
@@ -30,7 +30,7 @@ void receiver(int sockfd){
     bool running = true;
     char buffer[1024];
     socklen_t addr_size;
-    while(true){
+    while(running){
         addr_size = sizeof(client);
         recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, &addr_size);
         std::cout << "Data recieved: " << buffer << std::endl;
@@ -45,7 +45,7 @@ void sender(int sockfd){
     bool running = true;
     char buffer[1024];
     std::string line;
-    while(true){
+    while(running){
         std::getline(std::cin,line);
         strcpy(buffer, line.c_str());
         sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, sizeof(client));
