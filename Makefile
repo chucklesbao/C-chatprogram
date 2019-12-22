@@ -8,6 +8,10 @@ server: server.cpp
 
 clean:
 	rm client
+	rm server
 
-run:
+runClient:
 	./client ServerInfo.txt
+
+runServer:
+	./server ServerInfo.txt
