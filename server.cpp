@@ -1,5 +1,6 @@
 //server.cpp
 //Charles Bao
+//currently works as a client->server->client chat for 2 clients
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,7 +15,25 @@
 #include <string>
 #include <thread>
 
-struct sockaddr_in client, server;
+struct sockaddr_in sendSock, server;
+int sockfd;
+char* getData(std::ifstream &in);
+void sendMessage(std::string message, struct sockaddr_in recipient);
+std::string readMessage();
+void messageRouter(struct users& userInfo);
+struct users* initUsers();
+void deleteUsers();
+bool compareSock(struct sockaddr_in user1, struct sockaddr_in user2);
+void sendOtherUser(std::string message, struct users* userInfo);
+
+struct user{
+    struct sockaddr_in clientSocket;
+};//just stores user data
+
+struct users{
+    struct user* user1;
+    struct user* user2;
+};//temp for testing
 
 char* getData(std::ifstream &in){
     std::string data;
@@ -24,38 +43,77 @@ char* getData(std::ifstream &in){
     char* charArr = new char[n];
     strcpy(charArr, data.c_str());
     return charArr;
-}
+}//takes in data from the file
 
-void receiver(int sockfd){
-    bool running = true;
+void sendMessage(std::string message, struct sockaddr_in recipient){
     char buffer[1024];
-    socklen_t addr_size;
+    strcpy(buffer, message.c_str());
+    sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &recipient, sizeof(recipient));
+}//sends a message
+
+std::string readMessage(){
+    char buffer[1024];
+    socklen_t addr_size = sizeof(sendSock);
+    recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &sendSock, &addr_size);
+    std::string str(buffer);
+    return str;
+}//reads a message
+
+void messageRouter(struct users* userInfo){
+    bool running = true;
     while(running){
-        addr_size = sizeof(client);
-        recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, &addr_size);
-        std::cout << "Data recieved: " << buffer << std::endl;
-        if(std::strcmp(buffer,"end")==0){
-            running = false;
-            break;
+        std::string message = readMessage();
+        char IP[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &(sendSock.sin_addr), IP, INET_ADDRSTRLEN);
+        std::cout << "data recieved: " << IP << "-" << sendSock.sin_port << ": " << message << std::endl;
+        if(message == "end"){
+                running = false;
+                break;
+            }
+        if(message == "/login"){
+            if(userInfo->user1 == NULL){
+                userInfo->user1 = new user{sendSock};
+                sendMessage("hello!", sendSock);
+            }
+            else if(userInfo->user2 == NULL){
+                userInfo->user2 = new user{sendSock};
+                sendMessage("hello!", sendSock);
+            }
+            else{
+                sendMessage("There are already 2 people chatting",sendSock);
+            }
+        }
+        else if(userInfo->user1 != NULL && userInfo->user2 != NULL){
+            sendOtherUser(message, userInfo);
         }
     }
+}//redirects all the messages to the other person 
+
+struct users* initUsers(){
+    struct users* userInfo= new users{NULL,NULL};
+    return userInfo;
+}//creates struct containing user info
+
+void deleteUsers(struct users* userInfo){
+    delete userInfo->user1;
+    delete userInfo->user2;
+    delete userInfo;
+}//deletes all user info
+
+bool compareSock(struct sockaddr_in user1, struct sockaddr_in user2){
+    return (user1.sin_addr.s_addr == user2.sin_addr.s_addr && user1.sin_port == user2.sin_port);
 }
 
-void sender(int sockfd){
-    bool running = true;
-    char buffer[1024];
-    std::string line;
-    while(running){
-        std::getline(std::cin,line);
-        strcpy(buffer, line.c_str());
-        sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &client, sizeof(client));
-        if(line == "end"){
-            running = false;
-            break;
-        }
-        std::cout << "Data sent: "<< buffer <<std::endl;
+void sendOtherUser(std::string message, struct users* userInfo){
+    struct sockaddr_in user1 = userInfo->user1->clientSocket;
+    struct sockaddr_in user2 = userInfo->user2->clientSocket;
+    if(compareSock(sendSock,user1)){
+        sendMessage(message,user2);
     }
-}
+    else if(compareSock(sendSock,user2)){
+        sendMessage(message,user1);
+    }
+}//sends the message to the other user (temp for testing)
 
 int main(int argc, char** argv){
     if(argc != 2){
@@ -74,14 +132,13 @@ int main(int argc, char** argv){
     
     int port = atoi(portData);
     delete [] portData;
-    int sockfd;
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 	    std::cerr << "Cannot create socket\n";
 	    exit(0);
     }//check to see if socket was properly created
 
-    memset(&client, '\0', sizeof(client));
+    memset(&sendSock, '\0', sizeof(sendSock));
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
     server.sin_addr.s_addr = inet_addr(addressData);
@@ -92,10 +149,8 @@ int main(int argc, char** argv){
 	    exit(0);
     }//check to see if the socket was properly binded
 
-    std::thread rfc(receiver, sockfd);
-    rfc.detach();
-    std::thread stc(sender, sockfd);
-    stc.join();
-
+    struct users* userInfo = initUsers();
+    messageRouter(userInfo);
+    deleteUsers(userInfo);
     return 0;
 }

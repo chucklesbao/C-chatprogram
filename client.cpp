@@ -15,6 +15,10 @@
 #include <thread>
 
 struct sockaddr_in server;
+char* getData(std::ifstream &in);
+void receiver(int sockfd);
+void sender(int sockfd);
+void sendMessage(int sockfd, std::string message, struct sockaddr_in recipient);
 
 char* getData(std::ifstream &in){
     std::string data;
@@ -24,7 +28,7 @@ char* getData(std::ifstream &in){
     char* charArr = new char[n];
     strcpy(charArr, data.c_str());
     return charArr;
-}
+}//takes in data from the file
 
 void receiver(int sockfd){
     bool running = true;
@@ -39,22 +43,26 @@ void receiver(int sockfd){
             break;
         }
     }
-}
+}//constantly checks for new data being sent to client
 
 void sender(int sockfd){
-    bool running = true;
-    char buffer[1024];
+    bool running = true; 
     std::string line;
     while(running){
         std::getline(std::cin,line);
-        strcpy(buffer, line.c_str());
-        sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &server, sizeof(server));
+        sendMessage(sockfd, line, server);
         if(line == "end"){
             running = false;
             break;
         }
-        std::cout << "Data sent: "<< buffer <<std::endl;
+        std::cout << "Data sent: "<< line <<std::endl;
     }
+}//sends out new data
+
+void sendMessage(int sockfd, std::string message, struct sockaddr_in recipient){
+    char buffer[1024];
+    strcpy(buffer, message.c_str());
+    sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &recipient, sizeof(recipient));
 }
 
 int main(int argc, char** argv){
@@ -87,6 +95,8 @@ int main(int argc, char** argv){
     server.sin_port = htons(port);
     server.sin_addr.s_addr = inet_addr(addressData);
     delete [] addressData;
+
+    sendMessage(sockfd, "/login", server);
     
     std::thread rfs(receiver, sockfd);
     rfs.detach();
