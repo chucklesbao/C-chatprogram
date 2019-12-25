@@ -17,6 +17,8 @@
 
 struct sockaddr_in sendSock, server;
 int sockfd;
+struct users* userInfo;
+void initServer(int argc, char** argv);
 char* getData(std::ifstream &in);
 void sendMessage(std::string message, struct sockaddr_in recipient);
 std::string readMessage();
@@ -34,6 +36,41 @@ struct users{
     struct user* user1;
     struct user* user2;
 };//temp for testing
+
+void initServer(int argc, char** argv){
+    if(argc != 2){
+        std::cerr << "Usage:" << argv[0] << " ServerInfo.txt\n";
+        exit(0);
+    }//check to make sure the server info file was passed to main
+
+    std::ifstream in;
+    in.open(argv[1]);
+    if(!in){
+        std::cerr << "Error opening the file\n";
+        exit(0);
+    }//check to see if the file can be opened
+    char* portData = getData(in);
+    char* addressData = getData(in);
+    
+    int port = atoi(portData);
+    delete [] portData;
+
+    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+	    std::cerr << "Cannot create socket\n";
+	    exit(0);
+    }//check to see if socket was properly created
+
+    memset(&sendSock, '\0', sizeof(sendSock));
+    server.sin_family = AF_INET;
+    server.sin_port = htons(port);
+    server.sin_addr.s_addr = inet_addr(addressData);
+    delete [] addressData;
+
+    if ( bind(sockfd, (const struct sockaddr *) &server, sizeof(server)) < 0 ){ 
+        std::cerr << "Cannot bind socket\n";
+	    exit(0);
+    }//check to see if the socket was properly binded
+}
 
 char* getData(std::ifstream &in){
     std::string data;
@@ -55,8 +92,8 @@ std::string readMessage(){
     char buffer[1024];
     socklen_t addr_size = sizeof(sendSock);
     recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &sendSock, &addr_size);
-    std::string str(buffer);
-    return str;
+    std::string message(buffer);
+    return message;
 }//reads a message
 
 void messageRouter(struct users* userInfo){
@@ -73,11 +110,11 @@ void messageRouter(struct users* userInfo){
         if(message == "/login"){
             if(userInfo->user1 == NULL){
                 userInfo->user1 = new user{sendSock};
-                sendMessage("hello!", sendSock);
+                sendMessage("Connected to server", sendSock);
             }
             else if(userInfo->user2 == NULL){
                 userInfo->user2 = new user{sendSock};
-                sendMessage("hello!", sendSock);
+                sendMessage("Connected to server", sendSock);
             }
             else{
                 sendMessage("There are already 2 people chatting",sendSock);
@@ -116,40 +153,8 @@ void sendOtherUser(std::string message, struct users* userInfo){
 }//sends the message to the other user (temp for testing)
 
 int main(int argc, char** argv){
-    if(argc != 2){
-        std::cerr << "Usage:" << argv[0] << " ServerInfo.txt\n";
-        exit(0);
-    }//check to make sure the server info file was passed to main
-
-    std::ifstream in;
-    in.open(argv[1]);
-    if(!in){
-        std::cerr << "Error opening the file\n";
-        exit(0);
-    }//check to see if the file can be opened
-    char* portData = getData(in);
-    char* addressData = getData(in);
-    
-    int port = atoi(portData);
-    delete [] portData;
-
-    if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-	    std::cerr << "Cannot create socket\n";
-	    exit(0);
-    }//check to see if socket was properly created
-
-    memset(&sendSock, '\0', sizeof(sendSock));
-    server.sin_family = AF_INET;
-    server.sin_port = htons(port);
-    server.sin_addr.s_addr = inet_addr(addressData);
-    delete [] addressData;
-
-    if ( bind(sockfd, (const struct sockaddr *) &server, sizeof(server)) < 0 ){ 
-        std::cerr << "Cannot bind socket\n";
-	    exit(0);
-    }//check to see if the socket was properly binded
-
-    struct users* userInfo = initUsers();
+    initServer(argc,argv);
+    userInfo = initUsers();
     messageRouter(userInfo);
     deleteUsers(userInfo);
     return 0;

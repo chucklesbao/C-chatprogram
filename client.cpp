@@ -15,10 +15,13 @@
 #include <thread>
 
 struct sockaddr_in server;
+int sockfd;
 char* getData(std::ifstream &in);
-void receiver(int sockfd);
-void sender(int sockfd);
-void sendMessage(int sockfd, std::string message, struct sockaddr_in recipient);
+void reader();
+std::string readMessage();
+void sender();
+void sendMessage(std::string message, struct sockaddr_in recipient);
+void initClient(int argc, char** argv);
 
 char* getData(std::ifstream &in){
     std::string data;
@@ -30,42 +33,48 @@ char* getData(std::ifstream &in){
     return charArr;
 }//takes in data from the file
 
-void receiver(int sockfd){
+void receiver(){
     bool running = true;
-    char buffer[1024];
-    socklen_t addr_size;
+    std::string message;
     while(running){
-        addr_size = sizeof(server);
-        recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*)& server, &addr_size);
-        std::cout << "Data recieved: " << buffer << std::endl;
-        if(std::strcmp(buffer,"end")==0){
+        message = readMessage();
+        std::cout << "data recieved: " << message << std::endl;
+        if(message == "end"){
             running = false;
             break;
         }
     }
 }//constantly checks for new data being sent to client
 
-void sender(int sockfd){
+std::string readMessage(){
+    char buffer[1024];
+    socklen_t addr_size = sizeof(server);
+    recvfrom(sockfd, buffer, 1024, 0, (struct sockaddr*) &server, &addr_size);
+    std::string message(buffer);
+    return message;
+}//reads a message
+
+void sender(){
     bool running = true; 
-    std::string line;
+    std::string message;
     while(running){
-        std::getline(std::cin,line);
-        sendMessage(sockfd, line, server);
-        if(line == "end"){
+        std::getline(std::cin,message);
+        sendMessage(message, server);
+        if(message == "end"){
             running = false;
             break;
         }
-        std::cout << "Data sent: "<< line <<std::endl;
+        std::cout << "Data sent: "<< message <<std::endl;
     }
 }//sends out new data
 
-void sendMessage(int sockfd, std::string message, struct sockaddr_in recipient){
+void sendMessage(std::string message, struct sockaddr_in recipient){
     char buffer[1024];
     strcpy(buffer, message.c_str());
     sendto(sockfd, buffer, 1024, 0, (struct sockaddr*) &recipient, sizeof(recipient));
 }
 
-int main(int argc, char** argv){
+void initClient(int argc, char** argv){
     if(argc != 2){
         std::cerr << "Usage:" << argv[0] << " ServerInfo.txt\n";
         exit(0);
@@ -77,13 +86,10 @@ int main(int argc, char** argv){
         std::cerr << "Error opening the file\n";
         exit(0);
     }//check to see if the file can be opened
-    char* portData = getData(in);
-    char* addressData = getData(in);
-    
-    int port = atoi(portData);
-    delete [] portData;
-    int sockfd;
-    
+    char* portDataFF = getData(in);
+    char* addressDataFF = getData(in);
+
+    int port = atoi(portDataFF);
 
     if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 	    std::cerr << "Cannot create socket\n";
@@ -93,14 +99,19 @@ int main(int argc, char** argv){
     memset(&server, '\0', sizeof(server));
     server.sin_family = AF_INET;
     server.sin_port = htons(port);
-    server.sin_addr.s_addr = inet_addr(addressData);
-    delete [] addressData;
+    server.sin_addr.s_addr = inet_addr(addressDataFF);
+    delete [] portDataFF;
+    delete [] addressDataFF;
+}//initializes client socket and data
 
-    sendMessage(sockfd, "/login", server);
+int main(int argc, char** argv){
+    initClient(argc,argv);
+
+    sendMessage("/login", server);
     
-    std::thread rfs(receiver, sockfd);
+    std::thread rfs(receiver);
     rfs.detach();
-    std::thread sts(sender, sockfd);
+    std::thread sts(sender);
     sts.join();
     
     return 0;
