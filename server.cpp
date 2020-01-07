@@ -71,7 +71,7 @@ class networkIO{
             std::string message = readMessage();
             char IP[INET_ADDRSTRLEN];
             inet_ntop(AF_INET, &(sendSock.sin_addr), IP, INET_ADDRSTRLEN);
-            std::cout << "data recieved: " << IP << "-" << sendSock.sin_port << ": " << message << std::endl;
+            std::cout << "data recieved: " << IP << " - " << sendSock.sin_port << ": " << message << std::endl;
             if(message == "end"){
                     running = false;
                     break;
@@ -108,7 +108,7 @@ class networkIO{
 
     static bool compareSock(struct sockaddr_in user1, struct sockaddr_in user2){
         return (user1.sin_addr.s_addr == user2.sin_addr.s_addr && user1.sin_port == user2.sin_port);
-    }// compares sockets
+    }//zcompares sockets
 };
 
 class misc{
